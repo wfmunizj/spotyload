@@ -11,7 +11,7 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
 
-# Caminho base onde as músicas serão salvas (estava usando um pendrive por isso o caminho E:)
+# Caminho base onde as músicas serão salvas (estava usando um pendrive por isso o caminho E:\\)
 BASE_DOWNLOAD_PATH = "E:\\"  # Utilize duas barras invertidas para o caminho correto
 
 # ===== FUNÇÕES =====
