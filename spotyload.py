@@ -5,22 +5,22 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from pytube import Search
 import yt_dlp as youtube_dl
 from dotenv import load_dotenv
+import concurrent.futures
 
 load_dotenv()
 
 SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
 
-# Caminho base onde as músicas serão salvas (use duas barras invertidas no Windows)
-BASE_DOWNLOAD_PATH = "E:\\"  # Exemplo para pen drive
+# Caminho base onde as músicas serão salvas (exemplo: pen drive em E:\)
+BASE_DOWNLOAD_PATH = "E:\\"  # Utilize duas barras invertidas para o caminho correto
 
-# ===== FUNÇÕES =====
 def extract_playlist_id(url):
     match = re.search(r'playlist/([a-zA-Z0-9]+)', url)
     return match.group(1) if match else None
 
 def get_spotify_tracks(playlist_id):
-    """Obtém os nomes das músicas do Spotify (formato 'Artista - Título')."""
+    """Obtém os nomes das músicas do Spotify no formato 'Artista - Título'."""
     auth = SpotifyClientCredentials(
         client_id=SPOTIFY_CLIENT_ID,
         client_secret=SPOTIFY_CLIENT_SECRET
@@ -88,6 +88,16 @@ def download_audio(url, download_path):
         print(f"Erro ao baixar: {e}")
         return False
 
+def process_track(track, download_path):
+    """Processa uma música: busca no YouTube e baixa o áudio."""
+    video_url = search_youtube(track)
+    if video_url:
+        print(f"\n⬇️ Baixando: {track}")
+        success = download_audio(video_url, download_path)
+        print("✅ Sucesso!" if success else "❌ Falha!")
+    else:
+        print(f"⚠️ Não encontrado: {track}")
+
 def main():
     # Solicita a URL da playlist do Spotify
     playlist_url = input("Cole o link da playlist do Spotify: ").strip()
@@ -112,11 +122,11 @@ def main():
     if not tracks:
         print("❌ Nenhuma música encontrada!")
         return
-
+    
     total_tracks = len(tracks)
     print(f"🎵 Total de músicas na playlist do Spotify: {total_tracks}")
 
-    # Lê o número de arquivos MP3 já presentes no diretório (considerando que cada MP3 corresponde a uma música)
+    # Verifica quantas músicas já foram baixadas (arquivos .mp3)
     local_files = [f for f in os.listdir(final_download_path) if f.lower().endswith('.mp3')]
     local_count = len(local_files)
     print(f"💾 Músicas já baixadas: {local_count}")
@@ -125,20 +135,15 @@ def main():
         print("✅ Todas as músicas já foram baixadas!")
         return
     else:
-        # Considera que as músicas foram baixadas na ordem da playlist e baixa somente as faltantes
+        # Assume que as músicas foram baixadas na mesma ordem da playlist
         tracks_to_download = tracks[local_count:]
         print(f"⬇️ Baixando {len(tracks_to_download)} músicas faltantes...")
 
-    # Processa cada música: busca o vídeo no YouTube e baixa o áudio
-    for track in tracks_to_download:
-        video_url = search_youtube(track)
-        if video_url:
-            print(f"\n⬇️ Baixando: {track}")
-            success = download_audio(video_url, final_download_path)
-            print("✅ Sucesso!" if success else "❌ Falha!")
-        else:
-            print(f"⚠️ Não encontrado: {track}")
-
+    # Utiliza multithreading para processar os downloads em paralelo
+    with concurrent.futures.ThreadPoolExecutor(max_workers=500) as executor:
+        futures = [executor.submit(process_track, track, final_download_path) for track in tracks_to_download]
+        concurrent.futures.wait(futures)
+    
     print("\nConcluído!")
 
 if __name__ == "__main__":
