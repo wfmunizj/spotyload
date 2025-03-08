@@ -11,8 +11,8 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
 
-# Caminho base onde as músicas serão salvas (estava usando um pendrive por isso o caminho E:\\)
-BASE_DOWNLOAD_PATH = "E:\\"  # Utilize duas barras invertidas para o caminho correto
+# Caminho base onde as músicas serão salvas (use duas barras invertidas no Windows)
+BASE_DOWNLOAD_PATH = "E:\\"  # Exemplo para pen drive
 
 # ===== FUNÇÕES =====
 def extract_playlist_id(url):
@@ -70,14 +70,14 @@ def search_youtube(query):
         return None
 
 def download_audio(url, download_path):
-    """Baixa o áudio do YouTube usando yt-dlp e converte para MP3"""
+    """Baixa o áudio do YouTube usando yt-dlp e converte para MP3."""
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': os.path.join(download_path, '%(title)s.%(ext)s'),
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
-            'preferredquality': '192', #Qualidade do audio permitido (128, 192, 256, 320)
+            'preferredquality': '320',  # Qualidade do áudio (128, 192, 256, 320)
         }],
     }
     try:
@@ -89,43 +89,48 @@ def download_audio(url, download_path):
         return False
 
 def main():
-    #Solicita a URL da playlist do Spotify
+    # Solicita a URL da playlist do Spotify
     playlist_url = input("Cole o link da playlist do Spotify: ").strip()
-    
-    #Extrai o ID da playlist
     playlist_id = extract_playlist_id(playlist_url)
     if not playlist_id:
         print("❌ Link inválido!")
         return
 
-    #Solicita o nome da pasta onde as músicas serão salvas
+    # Solicita o nome da pasta onde as músicas serão salvas
     folder_name = input("Informe o nome da pasta onde as músicas serão salvas (deixe vazio para usar o nome da playlist): ").strip()
-
-    #Se não for digitado, obtém o nome da playlist
     if not folder_name:
         folder_name = get_playlist_name(playlist_id)
     
-    #Cria o caminho final de download unindo o BASE_DOWNLOAD_PATH e o nome da pasta
+    # Cria o caminho final de download unindo o BASE_DOWNLOAD_PATH e o nome da pasta
     final_download_path = os.path.join(BASE_DOWNLOAD_PATH, folder_name)
     os.makedirs(final_download_path, exist_ok=True)
     print(f"As músicas serão salvas em: {final_download_path}")
 
-    #Obtém as músicas da playlist
+    # Obtém as músicas da playlist do Spotify
     print("\n🔍 Obtendo músicas da playlist...")
     tracks = get_spotify_tracks(playlist_id)
     if not tracks:
         print("❌ Nenhuma música encontrada!")
         return
-    
-    #Caso não deseje baixar a playlist desde o início
-    if len(tracks) >= 287:
-        tracks = tracks[286:] #Coloque aqui o número de músicas que deseja pular
-    else:
-        print("A playlist possui menos de 100 faixas, iniciando do início.") #Pode ser alterado conforme necessidade
 
-    #Processa cada música: busca o vídeo no YouTube e baixa o áudio
-    print("\n🎵 Encontrando links no YouTube e baixando as músicas...")
-    for track in tracks:
+    total_tracks = len(tracks)
+    print(f"🎵 Total de músicas na playlist do Spotify: {total_tracks}")
+
+    # Lê o número de arquivos MP3 já presentes no diretório (considerando que cada MP3 corresponde a uma música)
+    local_files = [f for f in os.listdir(final_download_path) if f.lower().endswith('.mp3')]
+    local_count = len(local_files)
+    print(f"💾 Músicas já baixadas: {local_count}")
+
+    if local_count >= total_tracks:
+        print("✅ Todas as músicas já foram baixadas!")
+        return
+    else:
+        # Considera que as músicas foram baixadas na ordem da playlist e baixa somente as faltantes
+        tracks_to_download = tracks[local_count:]
+        print(f"⬇️ Baixando {len(tracks_to_download)} músicas faltantes...")
+
+    # Processa cada música: busca o vídeo no YouTube e baixa o áudio
+    for track in tracks_to_download:
         video_url = search_youtube(track)
         if video_url:
             print(f"\n⬇️ Baixando: {track}")
@@ -136,4 +141,5 @@ def main():
 
     print("\nConcluído!")
 
-main()
+if __name__ == "__main__":
+    main()
